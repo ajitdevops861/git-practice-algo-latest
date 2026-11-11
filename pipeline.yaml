@@ -1,0 +1,50 @@
+Application pipeline;;
+
+
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+
+# BUILD STAGE
+- stage: Build
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '20.x'
+
+    - script: npm install
+      displayName: Install Dependencies
+
+    - script: npm run build
+      displayName: Build React App
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'dist'
+        ArtifactName: 'react-dist'
+
+# DEPLOY STAGE
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+  - job: DeployJob
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: current
+        downloadType: single
+        artifactName: react-dist
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - task: CopyFilesOverSSH@0
+      inputs:
+        sshEndpoint: 'ubuntu-vm-ssh'
+        sourceFolder: '$(System.ArtifactsDirectory)/react-dist'
+        contents: '**'
+        targetFolder: '/tmp/react-dist'
